@@ -1,0 +1,6 @@
+{
+  "name": "gonu-online",
+  "private": true,
+  "description": "우리 옛 고누 7종을 컴퓨터·친구와 온라인으로 두는 웹 게임",
+  "engines": { "node": ">=18" }
+}

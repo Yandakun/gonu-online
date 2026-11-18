@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="우물고누, 호박고누, 참고누, 네바퀴고누 등 우리 옛 고누 7종을 컴퓨터·친구와 온라인으로 두는 웹 게임">
+<title>고누 온라인</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f3ead8; --card:#fbf6ea; --ink:#2a2420; --ink2:#5b5048; --line:#3a312a;
+    --red:#b33a2c; --red-d:#7e2219; --blue:#2b4f85; --blue-d:#1a3159; --gold:#c8962e; --ok:#3f7d4e; --bd:#e0d3b8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:"Noto Sans KR",system-ui,sans-serif;color:var(--ink);min-height:100vh;
+    background:radial-gradient(1200px 600px at 20% -10%,#fbf4e3 0%,transparent 60%),radial-gradient(900px 600px at 110% 110%,#e6d8bb 0%,transparent 55%),var(--paper)}
+  button{font-family:inherit}
+  [hidden]{display:none !important}
+  .top{max-width:1180px;margin:0 auto;padding:22px 20px 8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-family:"Gowun Batang",serif;font-weight:700;font-size:28px;letter-spacing:-.01em}
+  .brand small{font:400 14px "Noto Sans KR",sans-serif;color:var(--ink2);margin-left:8px}
+  .spacer{flex:1}
+  .joinbar{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink2)}
+  input.name{font:500 14px "Noto Sans KR",sans-serif;width:130px;padding:7px 10px;border:1px solid #d7c6a3;border-radius:10px;background:#fff;color:var(--ink)}
+  input.code{font:600 15px "Noto Sans KR",sans-serif;letter-spacing:.2em;text-transform:uppercase;width:104px;padding:7px 10px;border:1px solid #d7c6a3;border-radius:10px;background:#fff;color:var(--ink)}
+  .btn{border:1px solid #d7c6a3;background:#fff;color:var(--ink);padding:8px 14px;border-radius:10px;font:500 13.5px "Noto Sans KR",sans-serif;cursor:pointer}
+  .btn:hover{background:#fffaf0}
+  .btn.primary{background:var(--ink);color:#fbf6ea;border-color:var(--ink)}
+  .btn.primary:hover{background:#3d342d}
+  .btn.small{padding:5px 10px;font-size:12.5px}
+  .btn:disabled{opacity:.45;cursor:default}
+  .back{border:0;background:transparent;font:500 14px "Noto Sans KR",sans-serif;color:var(--ink2);cursor:pointer;padding:6px 4px}
+  .back:hover{color:var(--ink)}
+  .note{font-size:13px;color:var(--red-d);margin-top:6px}
+  .note:empty{display:none}
+
+  /* 메인 */
+  #home{max-width:1180px;margin:0 auto;padding:8px 20px 48px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:28px;align-items:start}
+  @media (max-width:900px){#home{grid-template-columns:1fr}}
+  .sec-title{font-family:"Gowun Batang",serif;font-size:19px;margin:6px 0 12px;display:flex;align-items:baseline;gap:8px}
+  .sec-title span{font:400 13px "Noto Sans KR",sans-serif;color:var(--ink2)}
+  #cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .card{display:flex;gap:12px;align-items:center;text-align:left;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+  .card:hover{border-color:#cdb88d;transform:translateY(-1px)}
+  .card.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
+  .thumb{width:84px;height:84px;flex:none;background:linear-gradient(180deg,#efe2c4,#e7d6b2);border-radius:10px;padding:4px}
+  .thumb .line{stroke-width:5}
+  .cn{font-family:"Gowun Batang",serif;font-weight:700;font-size:17px}
+  .ck{font-size:12px;color:#8a6d3b;margin:2px 0 4px}
+  .cd{font-size:13px;color:var(--ink2);line-height:1.5}
+  #unsorted{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+  .ucard{border:1px dashed #cdb98f;border-radius:12px;padding:10px 12px;background:#f6efe1}
+  .un{font-weight:700;font-size:14px;margin-bottom:4px}
+  .uk{font-size:12.5px;color:#3a322b;line-height:1.55}
+  .um{font-size:12px;color:#8a6d3b;margin-top:4px;line-height:1.5}
+  #detail{position:sticky;top:12px;background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:18px 20px;max-height:calc(100vh - 24px);overflow:auto;box-shadow:0 10px 30px -18px rgba(60,40,10,.35)}
+  @media (max-width:900px){#detail{position:static;max-height:none}}
+  .dhead h2{font-family:"Gowun Batang",serif;font-size:28px;margin:0}
+  .aka{font-size:13px;color:var(--ink2);margin-top:2px}
+  .tags{display:flex;gap:6px;margin-top:8px}
+  .tag{font-size:12px;background:#efe4cd;border-radius:999px;padding:2px 10px;color:#6b5636}
+  .modes{display:grid;grid-template-columns:1fr;gap:8px;margin:16px 0 6px}
+  .mode{border:1px solid var(--bd);border-radius:12px;padding:10px 12px;background:#fffdf7;display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:2px 10px;align-items:center}
+  .mode .mt{font-weight:700;font-size:14.5px}
+  .mode .md{font-size:12.5px;color:var(--ink2);grid-column:1}
+  .mode .btn{grid-column:2;grid-row:1 / span 2}
+  .mode .seg{grid-column:1;margin-top:6px;justify-self:start}
+
+  .seg{display:inline-flex;background:#efe4cd;border-radius:10px;padding:3px;border:1px solid #e0d1b1}
+  .seg button{border:0;background:transparent;padding:7px 12px;border-radius:8px;font:500 13.5px "Noto Sans KR",sans-serif;color:var(--ink2);cursor:pointer}
+  .seg.small button{padding:4px 9px;font-size:12.5px}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+  .rules h3{font-family:"Gowun Batang",serif;font-size:16.5px;margin:18px 0 6px;display:flex;align-items:center;gap:8px}
+  .rules h3 .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--card);font:700 12px "Noto Sans KR",sans-serif;flex:none}
+  .rules p,.rules li{font-size:14px;line-height:1.75;color:#3a322b}
+  .rules ul{padding-left:18px;margin:4px 0}
+  .rules .lead{font-size:14.5px;color:var(--ink2);margin:14px 0 0}
+  .house{background:#f6efe1;border:1px dashed #cdb98f;border-radius:10px;padding:6px 12px}
+  .house li{font-size:13px}
+  .src{font-size:12.5px;color:#7d6f5f;margin-top:16px;line-height:1.6}
+  .src a{color:#6b5636}
+
+  /* 대국 */
+  #play{max-width:1180px;margin:0 auto;padding:8px 20px 48px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:28px;align-items:start}
+  @media (max-width:900px){#play{grid-template-columns:1fr}}
+  .pcard{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:16px;box-shadow:0 10px 30px -18px rgba(60,40,10,.35)}
+  .ptitle{font-family:"Gowun Batang",serif;font-size:24px;font-weight:700;margin:0 6px 6px}
+  .status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 6px 10px;flex-wrap:wrap}
+  .turn{display:flex;align-items:center;gap:10px;font-family:"Gowun Batang",serif;font-size:20px;font-weight:700}
+  .chip{width:18px;height:18px;border-radius:50%;display:inline-block;box-shadow:inset 0 -2px 0 rgba(0,0,0,.25);background:#bbb}
+  .chip.red{background:var(--red)} .chip.blue{background:var(--blue)}
+  .msg{font-size:13.5px;color:var(--ink2);min-height:20px}
+  .tally{display:flex;gap:14px;font-size:13px;color:var(--ink2)}
+  .tally b{color:var(--ink);font-size:14.5px}
+  .boardwrap{position:relative;background:linear-gradient(180deg,#efe2c4,#e7d6b2);border-radius:14px;border:1px solid #d6c49e;box-shadow:inset 0 2px 10px rgba(90,60,20,.12)}
+  svg#board{display:block;width:100%;height:auto;max-height:72vh;touch-action:manipulation;user-select:none}
+  .line{stroke:var(--line);stroke-width:3.2;stroke-linecap:round;fill:none}
+  .node{fill:var(--line)}
+  .well{fill:#7fa6b8;stroke:var(--line);stroke-width:3}
+  .ripple{fill:none;stroke:#e9f2f5;stroke-width:2.5;stroke-linecap:round}
+  .coord{font:500 15px "Noto Sans KR",sans-serif;fill:#8a7a64;text-anchor:middle;dominant-baseline:middle}
+  .hit{fill:transparent;cursor:pointer}
+  .piece{transition:filter .15s}
+  .piece .body{stroke-width:2.5}
+  .piece.red .body{fill:var(--red);stroke:var(--red-d)}
+  .piece.blue .body{fill:var(--blue);stroke:var(--blue-d)}
+  .piece .ring{fill:none;stroke:rgba(255,255,255,.35);stroke-width:2}
+  .piece .gloss{fill:rgba(255,255,255,.18)}
+  .piece.sel .body{stroke:var(--gold);stroke-width:5}
+  .piece.movable{filter:drop-shadow(0 0 0 transparent)}
+  .piece.removable .body{stroke:var(--gold);stroke-width:4}
+  .piece.dying{opacity:.35;transition:opacity .3s}
+  .hint-step{fill:var(--ok);opacity:.85;pointer-events:none}
+  .hint-capdot{fill:var(--gold);pointer-events:none}
+  .hint-cap{fill:none;stroke:var(--gold);stroke-width:4;stroke-dasharray:6 5;pointer-events:none;animation:spin 6s linear infinite;transform-box:fill-box;transform-origin:center}
+  .cap-preview{fill:none;stroke:#d24a3a;stroke-width:4;pointer-events:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .route{fill:none;stroke:var(--gold);stroke-width:6;stroke-linecap:round;stroke-linejoin:round;opacity:.85;pointer-events:none}
+  .lastmove{fill:none;stroke:#00000030;stroke-width:3;pointer-events:none}
+  .mark{stroke:#7e2219;stroke-width:4;stroke-linecap:round;pointer-events:none}
+  .overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none}
+  .overlay.show{display:flex}
+  .overlay div{background:rgba(251,246,234,.95);border:1px solid #d9c8a3;border-radius:14px;padding:16px 22px;text-align:center;font-family:"Gowun Batang",serif;box-shadow:0 12px 30px -12px rgba(60,40,10,.4)}
+  .overlay strong{display:block;font-size:24px;margin-bottom:4px}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center}
+  .log{margin-top:12px;font-size:13px;color:var(--ink2);max-height:120px;overflow:auto;border-top:1px dashed #d9c8a3;padding-top:8px;line-height:1.7}
+  .log span{display:inline-block;margin-right:12px;white-space:nowrap}
+  .log .cap{color:var(--red-d);font-weight:500}
+  .online{margin-top:12px;padding:12px;border:1px solid #e3d4b4;border-radius:12px;background:#fbf3e2}
+  #lobby{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .or{font-size:13px;color:var(--ink2)}
+  .roomline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px}
+  .roomcode{font:700 20px "Noto Sans KR",sans-serif;letter-spacing:.18em}
+  .live{font-size:12px;border-radius:999px;padding:2px 9px}
+  .live.on{background:#e3f0e3;color:#2f6b3c}
+  .live.off{background:#f4e5cf;color:#8a6d3b}
+  .players{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;font-size:13.5px;color:var(--ink2)}
+  .players .p{display:flex;align-items:center;gap:6px}
+  .players img{width:20px;height:20px;border-radius:50%}
+  .players .me{font-size:11.5px;background:var(--ink);color:var(--card);border-radius:6px;padding:0 5px}
+  .presence{font-size:11.5px;border-radius:6px;padding:0 5px}
+  .presence.on{background:#e3f0e3;color:#2f6b3c}
+  .presence.off{background:#eee5d6;color:#8a7a64}
+  #playRules{padding:4px}
+  #playRules .dhead h2{font-size:24px}
+</style>
+</head>
+<body>
+<div class="top">
+  <button class="back" id="backBtn" hidden>← 고누 목록</button>
+  <div class="brand">고누 온라인<small>우리 옛 말판 놀이</small></div>
+  <span class="spacer"></span>
+  <div class="joinbar">초대받은 방 코드 <input class="code" id="homeCode" maxlength="5" placeholder="코드" autocomplete="off" spellcheck="false"><button class="btn" id="homeJoinBtn">참가</button></div>
+</div>
+<div style="max-width:1180px;margin:0 auto;padding:0 20px"><div class="note" id="homeNote"></div></div>
+
+<main id="home">
+  <section>
+    <div class="sec-title">둘 수 있는 고누 <span>규칙이 정리된 7가지 — 누르면 옆에 설명과 룰이 나와요</span></div>
+    <div id="cards"></div>
+    <div class="sec-title" style="margin-top:28px">아직 규칙이 정리되지 않은 고누 <span>자료가 모자라 아직 만들지 않았어요</span></div>
+    <div id="unsorted"></div>
+  </section>
+  <aside id="detail"></aside>
+</main>
+
+<main id="play" hidden>
+  <section class="pcard">
+    <div class="ptitle" id="gameTitle"></div>
+    <div class="status">
+      <div>
+        <div class="turn"><span class="chip red" id="turnChip"></span><span id="turnText"></span></div>
+        <div class="msg" id="msg"></div>
+      </div>
+      <div class="tally">
+        <div><span class="chip red" style="width:10px;height:10px"></span> 홍 <b id="redLeft"></b></div>
+        <div><span class="chip blue" style="width:10px;height:10px"></span> 청 <b id="blueLeft"></b></div>
+      </div>
+    </div>
+    <div class="boardwrap">
+      <svg id="board" viewBox="0 0 100 100" aria-label="고누 말판">
+        <g id="coords"></g>
+        <g id="world">
+          <g id="lines"></g>
+          <path id="route" class="route" d=""></path>
+          <g id="hints"></g>
+          <g id="capPreview"></g>
+          <g id="pieces"></g>
+          <g id="hits"></g>
+        </g>
+      </svg>
+      <div class="overlay" id="overlay"><div><strong id="ovTitle"></strong><span id="ovSub"></span></div></div>
+    </div>
+    <div class="controls">
+      <div class="seg" id="modeSeg">
+        <button data-mode="ai">컴퓨터와</button>
+        <button data-mode="pvp">둘이서 한 화면</button>
+        <button data-mode="online">온라인</button>
+      </div>
+      <div class="seg" id="levelSeg">
+        <button data-level="easy">쉬움</button>
+        <button data-level="normal">보통</button>
+        <button data-level="hard">어려움</button>
+      </div>
+      <span class="spacer"></span>
+      <span id="localBtns"><button class="btn" id="undoBtn">무르기</button> <button class="btn primary" id="newBtn">새 판</button></span>
+    </div>
+    <div class="online" id="onlinePanel" hidden>
+      <div id="lobby">
+        <input class="name" id="nameInput" maxlength="12" placeholder="내 이름(선택)" autocomplete="off">
+        <button class="btn primary" id="createBtn">방 만들고 초대하기</button>
+        <span class="or">또는</span>
+        <input class="code" id="codeInput" maxlength="5" placeholder="방 코드" autocomplete="off" spellcheck="false">
+        <button class="btn" id="joinBtn">참가</button>
+      </div>
+      <div id="inRoom" hidden>
+        <div class="roomline">방 코드 <b id="roomCode" class="roomcode"></b>
+          <button class="btn small" id="copyBtn">초대 링크 복사</button>
+          <span class="live off" id="liveDot"></span>
+          <span class="spacer"></span>
+          <button class="btn small" id="rematchBtn" hidden>다시 하기</button>
+          <button class="btn small" id="leaveBtn">나가기</button>
+        </div>
+        <div class="players" id="players"></div>
+      </div>
+      <div class="note" id="onlineNote"></div>
+    </div>
+    <div class="log" id="log"></div>
+  </section>
+  <aside id="playRules"></aside>
+</main>
+
+<script src="games.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
