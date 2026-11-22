@@ -4,7 +4,7 @@ const G = require('../games.js');
 const RURL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const RTOK = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const TTL = 60 * 60 * 24 * 7;      // 방은 7일 보관
-const ONLINE_MS = 30000;            // 30초 안에 확인한 사람 = 접속 중
+const ONLINE_MS = 20000;            // 20초 안에 확인한 사람 = 접속 중
 
 async function redis(cmd){
   const r = await fetch(RURL, {method: 'POST', headers: {Authorization: `Bearer ${RTOK}`, 'Content-Type': 'application/json'}, body: JSON.stringify(cmd)});
@@ -18,6 +18,8 @@ const okCode = c => typeof c === 'string' && /^[A-Z0-9]{5}$/.test(c);
 const okTok = t => typeof t === 'string' && /^[a-z0-9]{8,40}$/.test(t);
 const clean = n => (typeof n === 'string' ? n : '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 12);
 function genCode(){ const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 5; i++) c += a[Math.floor(Math.random() * a.length)]; return c; }
+const online = (seen, s) => !!seen[s - 1] && Date.now() - +seen[s - 1] < ONLINE_MS;
+function sit(room, s, t, name){ if (s === 1){ room.redTok = t; room.redName = clean(name); } else { room.blueTok = t; room.blueName = clean(name); } }
 const seatOf = (room, t) => (t && room.redTok === t) ? 1 : (t && room.blueTok === t) ? 2 : 0;
 
 function pub(code, room, you, seen, extra){
@@ -73,16 +75,31 @@ module.exports = async (req, res) => {
     if (b.action === 'join'){
       let adopt = null;
       if (!you && okTok(b.alt)){
-        // 같은 기기에서 다시 들어온 경우: 자리 주인이 30초 넘게 안 보이면 그 자리를 되찾음
+        // 같은 기기에서 다시 들어온 경우: 원래 자리를 그대로 이어받음 (다른 자리를 새로 잡지 않음)
         const s = seatOf(room, b.alt);
-        if (s && !(seen[s - 1] && Date.now() - +seen[s - 1] < ONLINE_MS)){ you = s; adopt = b.alt; }
+        if (s){ you = s; adopt = b.alt; }
       }
       if (!you && !room.blueTok){
         room.blueTok = b.t; room.blueName = clean(b.name); you = 2;
         await save(code, room);
+      } else if (!you && room.seq === 0){
+        // 아직 한 수도 안 둔 방에서 한쪽이 20초 넘게 안 보이면(창을 닫았거나 다른 브라우저로 옮겨 감) 그 자리에 앉힘
+        const off = [1, 2].find(s => !online(seen, s));
+        if (off){ sit(room, off, b.t, b.name); you = off; await save(code, room); }
       }
       if (you){ await touch(code, you); seen[you - 1] = String(Date.now()); }
       return res.json(pub(code, room, you, seen, adopt ? {adopt} : null));
+    }
+
+    if (b.action === 'sit'){
+      // 구경꾼이 비어 있거나 자리를 비운 쪽에 앉기
+      const s = b.seat === 1 || b.seat === 2 ? b.seat : 0;
+      if (!s) return res.status(400).json({error: 'bad_seat'});
+      if (you) return res.json(pub(code, room, you, seen));
+      const holder = s === 1 ? room.redTok : room.blueTok;
+      if (holder && online(seen, s)) return res.status(409).json({error: 'seat_taken', room: pub(code, room, 0, seen)});
+      sit(room, s, b.t, b.name); await save(code, room); await touch(code, s); seen[s - 1] = String(Date.now());
+      return res.json(pub(code, room, s, seen));
     }
 
     if (b.action === 'move'){

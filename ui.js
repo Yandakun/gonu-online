@@ -292,7 +292,15 @@ function maybeAI(){
 // ===== 온라인 (Vercel API + Redis) =====
 const API = '/api/room';
 const rid = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
-const TAB = (() => { const k = 'gonu-tab'; try { let t = sessionStorage.getItem(k); if (!t){ t = rid(); sessionStorage.setItem(k, t); } return t; } catch (e) { return rid(); } })();
+// 브라우저마다 하나인 내 표 (새로고침·새 탭에도 같은 사람으로 인식)
+const TAB = (() => { const k = 'gonu-token'; try { let t = localStorage.getItem(k); if (!t){ t = rid(); localStorage.setItem(k, t); } return t; } catch (e) { try { let t = sessionStorage.getItem(k); if (!t){ t = rid(); sessionStorage.setItem(k, t); } return t; } catch (_) { return rid(); } } })();
+// 카카오톡 등 앱 안 브라우저에서 열리면 기본 브라우저로 옮김 (앱 안 창과 바깥 창이 서로 다른 사람으로 잡히는 것을 막음)
+(function leaveInApp(){
+  const ua = navigator.userAgent || '';
+  if (!/KAKAOTALK/i.test(ua)) return;
+  try { if (sessionStorage.getItem('gonu-ext')) return; sessionStorage.setItem('gonu-ext', '1'); } catch (e) {}
+  location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href);
+})();
 const store = {
   get(k){ try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v){ try { localStorage.setItem(k, v); } catch (e) {} },
@@ -356,7 +364,7 @@ async function joinRoom(code){
     const g = GAME_BY_ID[d.game];
     if (!g){ note('알 수 없는 고누 방이에요.'); return; }
     enterRoom(code, g, d);
-    NET.joinErr = d.you ? '' : '이미 두 사람이 두고 있어서 구경으로 들어왔어요.';
+    NET.joinErr = d.you ? '' : '두 자리가 모두 차 있어서 구경으로 들어왔어요. 상대가 다른 창(예: 카카오톡 안 브라우저)에서 먼저 들어갔다면, 그 창을 닫고 20초 뒤 "이 자리에 앉기"를 눌러 주세요.';
     if (NET.joinErr) note(NET.joinErr);
     render();
   } catch (e){ note(explainErr(e)); }
@@ -390,7 +398,7 @@ async function poll(now){
   if (!NET.code) return;
   if (now) clearTimeout(NET.pollT);
   const code = NET.code;
-  const ping = Date.now() - NET.lastPing > 12000;
+  const ping = Date.now() - NET.lastPing > 7000;
   try {
     const d = await api('GET', {code, t: NET.token, ping: ping ? 1 : 0});
     if (code !== NET.code) return;
@@ -452,6 +460,16 @@ async function netPush(m){
   flushPending();
   schedulePoll();
 }
+async function sitDown(seat){
+  try {
+    const d = await api('POST', {action: 'sit', code: NET.code, t: NET.token, seat, name: myName()});
+    if (d.you) store.set('gonu-seat-' + NET.code, NET.token);
+    NET.joinErr = ''; note(''); NET.seq = -1; onData(d);
+  } catch (e){
+    if (e.status === 409) note('그 자리 주인이 아직 접속해 있어요. 상대에게 그 창을 닫아 달라고 하거나 잠시 뒤 다시 눌러 주세요.');
+    else note(explainErr(e));
+  }
+}
 async function rematch(){
   try { const d = await api('POST', {action: 'rematch', code: NET.code, t: NET.token, round: NET.round}); onData(d); }
   catch (e){ if (e.status === 409 && e.body && e.body.room) onData(e.body.room); else note(explainErr(e)); }
@@ -475,6 +493,7 @@ function renderOnline(){
     h('span', null, `${NAME[color]} · ` + (has ? (nm || (color === NET.color ? '나' : '상대')) : '기다리는 중…'), row);
     if (has && color === NET.color) h('span', 'me', '나', row);
     else if (has && NET.color){ const on = d.online && d.online[color]; h('span', 'presence ' + (on ? 'on' : 'off'), on ? '접속 중' : '자리 비움', row); }
+    if (!NET.color && (!has || !(d.online && d.online[color]))){ const sb = h('button', 'btn small', '이 자리에 앉기', row); sb.onclick = () => sitDown(color); }
   }
   if (!NET.color && d.red && d.blue) h('div', 'p', '👀 구경 중', box);
 }
