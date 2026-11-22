@@ -82,6 +82,7 @@ function renderDetail(box, g, withModes){
 }
 
 // ===== 대국 =====
+let hintLevel = (() => { try { return localStorage.getItem('gonu-hint') || 'move'; } catch (e) { return 'move'; } })(), flash = null;
 let cur = null, level = 'normal', selected = null, pendingRemove = null, busy = false, aiTimer = null, flipped = false;
 function startLocal(g, mode){
   if (NET.code) leaveRoom(true);
@@ -170,8 +171,17 @@ function render(){
   const hg = $('hints'); hg.innerHTML = '';
   for (const mk of (g.marksOf ? g.marksOf(s) : [])){ const [x, y] = XY(mk); const k = PR * 0.55; el('path', {d: `M${x-k} ${y-k} L${x+k} ${y+k} M${x+k} ${y-k} L${x-k} ${y+k}`, class: 'mark'}, hg); }
   if (mt && !pendingRemove){
-    if (s.phase === 'place'){ const seen = new Set(); for (const m of legalNow){ if (seen.has(m.t)) continue; seen.add(m.t); const [x, y] = XY(m.t); el('circle', {cx: x, cy: y, r: PR*0.32, class: isCap(m) ? 'hint-capdot' : 'hint-step'}, hg); } }
-    else if (selected !== null){ const seen = new Set(); for (const m of legalNow.filter(m => m.f === selected)){ if (seen.has(m.t)) continue; seen.add(m.t); const [x, y] = XY(m.t); if (s.bd[m.t]) el('circle', {cx: x, cy: y, r: PR*1.35, class: 'hint-cap'}, hg); else el('circle', {cx: x, cy: y, r: PR*0.38, class: isCap(m) ? 'hint-capdot' : 'hint-step'}, hg); } }
+    // 힌트: all = 갈 곳 + 잡는 수, move = 빈 칸으로 갈 곳만, off = 없음
+    if (s.phase === 'place'){ if (hintLevel === 'all'){ const seen = new Set(); for (const m of legalNow){ if (seen.has(m.t)) continue; seen.add(m.t); const [x, y] = XY(m.t); el('circle', {cx: x, cy: y, r: PR*0.32, class: isCap(m) ? 'hint-capdot' : 'hint-step'}, hg); } } }
+    else if (selected !== null && hintLevel !== 'off'){
+      const seen = new Set();
+      for (const m of legalNow.filter(m => m.f === selected)){
+        if (seen.has(m.t)) continue; seen.add(m.t);
+        const [x, y] = XY(m.t);
+        if (hintLevel === 'all'){ if (s.bd[m.t]) el('circle', {cx: x, cy: y, r: PR*1.35, class: 'hint-cap'}, hg); else el('circle', {cx: x, cy: y, r: PR*0.38, class: isCap(m) ? 'hint-capdot' : 'hint-step'}, hg); }
+        else if (!s.bd[m.t]) el('circle', {cx: x, cy: y, r: PR*0.38, class: 'hint-step'}, hg);
+      }
+    }
   }
   if (removable.size) for (const r of removable){ const [x, y] = XY(r); el('circle', {cx: x, cy: y, r: PR*1.35, class: 'hint-cap'}, hg); }
   if (cur.last){ for (const sq of [cur.last.f, cur.last.t]) if (sq !== null && sq !== undefined){ const [x, y] = XY(sq); el('circle', {cx: x, cy: y, r: PR*0.5, class: 'lastmove'}, hg); } }
@@ -214,16 +224,18 @@ function statusMsg(legalNow){
   if (busy && cur.mode === 'ai' && s.turn === BLUE) return '컴퓨터가 생각하는 중…';
   if (pendingRemove) return '꼰! 떼어 낼 상대 말을 고르세요.';
   if (s.phase === 'place') return `빈 점을 눌러 말을 놓으세요. 한 줄에 세 개를 세우면 꼰!`;
+  if (flash && Date.now() < flash.until) return flash.text;
   if (selected !== null){
+    if (hintLevel !== 'all') return '옮길 자리를 누르세요. 다른 말을 누르면 바꿔 고릅니다.';
     const ms = legalNow.filter(m => m.f === selected);
     return ms.some(isCap) ? '금색 표시는 잡는 수예요. 위에 올리면 잡히는 말이 보여요.' : '초록 점으로 옮길 수 있어요.';
   }
   if (cur.g.id === 'obat') return '대각선으로 한 칸씩 옮겨 상대 진영을 차지하세요.';
-  return legalNow.some(isCap) ? '잡을 수 있는 수가 있어요!' : '움직일 말을 누르세요.';
+  return (hintLevel === 'all' && legalNow.some(isCap)) ? '잡을 수 있는 수가 있어요!' : '움직일 말을 누르세요.';
 }
 function onHover(sq){
   const r = $('route');
-  if (!cur || sq === null || selected === null || pendingRemove){ r.setAttribute('d', ''); $('capPreview').innerHTML = ''; return; }
+  if (!cur || sq === null || selected === null || pendingRemove || hintLevel !== 'all'){ r.setAttribute('d', ''); $('capPreview').innerHTML = ''; return; }
   const m = cur.g.moves(cur.s).find(m => m.f === selected && m.t === sq);
   r.setAttribute('d', m && m.path && cur.g.pathPts ? ptsD(cur.g.pathPts(m, XY)) : '');
   const cp = $('capPreview'); cp.innerHTML = '';
@@ -241,7 +253,14 @@ function onPoint(i){
     if (withR.length > 1){ pendingRemove = withR; selected = null; render(); return; }
     doMove(cands[0]); return;
   }
-  selected = (s.bd[i] === s.turn && ms.some(m => m.f === i) && selected !== i) ? i : null;
+  if (hintLevel !== 'all' && s.phase !== 'place'){
+    if (s.bd[i] === s.turn){ selected = selected === i ? null : i; }
+    else if (selected !== null){ flash = {text: '그 자리로는 갈 수 없어요.', until: Date.now() + 1800}; setTimeout(render, 1900); }
+    else selected = null;
+  } else {
+    if (s.phase === 'place' && hintLevel !== 'all' && !s.bd[i]){ flash = {text: '그 자리에는 놓을 수 없어요.', until: Date.now() + 1800}; setTimeout(render, 1900); }
+    selected = (s.bd[i] === s.turn && ms.some(m => m.f === i) && selected !== i) ? i : null;
+  }
   render();
 }
 function animate(m, done){
@@ -515,6 +534,10 @@ for (const b of $('modeSeg').children) b.onclick = () => {
   if (NET.code) leaveRoom(true);
   startLocal(cur.g, m);
 };
+for (const b of $('hintSeg').children){
+  b.classList.toggle('on', b.dataset.hint === hintLevel);
+  b.onclick = () => { hintLevel = b.dataset.hint; try { localStorage.setItem('gonu-hint', hintLevel); } catch (e) {} [...$('hintSeg').children].forEach(x => x.classList.toggle('on', x === b)); render(); };
+}
 for (const b of $('levelSeg').children) b.onclick = () => { level = b.dataset.level; [...$('levelSeg').children].forEach(x => x.classList.toggle('on', x === b)); };
 $('createBtn').onclick = () => createRoom(cur.g);
 $('nameInput').addEventListener('change', e => store.set('gonu-name', e.target.value.trim().slice(0, 12)));
